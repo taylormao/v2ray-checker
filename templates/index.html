@@ -1,0 +1,839 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>v2rayN 订阅节点检测工具</title>
+    <script src="{{ url_for('static', filename='js/socket.io.min.js') }}"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #f0f0f0;
+        }
+
+        .header h1 {
+            color: #333;
+            font-size: 28px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .header h1 span {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            font-size: 14px;
+            padding: 2px 12px;
+            border-radius: 20px;
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #ccc;
+            transition: all 0.3s;
+        }
+
+        .status-dot.running {
+            background: #4CAF50;
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(0.8); }
+        }
+
+        .main-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+        }
+
+        .main-grid > * {
+            min-width: 0;
+        }
+
+        @media (max-width: 768px) {
+            .main-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .panel {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 20px;
+        }
+
+        .panel-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .panel-title .badge {
+            background: #667eea;
+            color: white;
+            font-size: 12px;
+            padding: 1px 10px;
+            border-radius: 20px;
+            margin-left: auto;
+        }
+
+        textarea {
+            width: 100%;
+            height: 200px;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            font-family: 'Courier New', monospace;
+            resize: vertical;
+            transition: border-color 0.3s;
+        }
+
+        textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-top: 15px;
+        }
+
+        .btn {
+            padding: 10px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+        }
+
+        .btn-danger {
+            background: #e74c3c;
+            color: white;
+        }
+
+        .btn-success {
+            background: #2ecc71;
+            color: white;
+        }
+
+        .btn-secondary {
+            background: #95a5a6;
+            color: white;
+        }
+
+        .btn-warning {
+            background: #f39c12;
+            color: white;
+        }
+
+        .settings {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .settings-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .settings-group label {
+            font-size: 13px;
+            color: #555;
+            font-weight: 500;
+        }
+
+        .settings-group input {
+            padding: 8px 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+
+        .settings-group input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .progress-container {
+            margin: 15px 0;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #e0e0e0;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            width: 0%;
+            transition: width 0.3s;
+            border-radius: 4px;
+        }
+
+        .progress-stats {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .stat-item {
+            text-align: center;
+            padding: 10px;
+            background: white;
+            border-radius: 8px;
+        }
+
+        .stat-number {
+            font-size: 24px;
+            font-weight: 700;
+            color: #333;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: #888;
+            margin-top: 4px;
+        }
+
+        .stat-number.valid {
+            color: #2ecc71;
+        }
+        .stat-number.invalid {
+            color: #e74c3c;
+        }
+        .stat-number.total {
+            color: #3498db;
+        }
+
+        .log-container {
+            height: 300px;
+            overflow-y: auto;
+            overflow-x: auto;
+            background: #1e1e1e;
+            border-radius: 8px;
+            padding: 12px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            line-height: 1.6;
+        }
+
+        .log-container::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .log-container::-webkit-scrollbar-track {
+            background: #1e1e1e;
+        }
+
+        .log-container::-webkit-scrollbar-thumb {
+            background: #667eea;
+            border-radius: 3px;
+        }
+
+        .log-entry {
+            color: #d4d4d4;
+            padding: 2px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            word-break: break-all;
+        }
+
+        .log-entry .timestamp {
+            color: #6a9955;
+            margin-right: 10px;
+        }
+
+        .log-entry .level-info {
+            color: #4fc3f7;
+        }
+
+        .log-entry .level-success {
+            color: #66bb6a;
+        }
+
+        .log-entry .level-error {
+            color: #ef5350;
+        }
+
+        .log-entry .level-warning {
+            color: #ffa726;
+        }
+
+        .results-section {
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 2px solid #f0f0f0;
+        }
+
+        .result-list {
+            display: grid;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .result-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 16px;
+            background: white;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+
+        .result-item .info {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .result-item .filename {
+            font-weight: 500;
+            color: #333;
+        }
+
+        .result-item .meta {
+            font-size: 12px;
+            color: #888;
+        }
+
+        .result-item .actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .btn-sm {
+            padding: 4px 12px;
+            font-size: 12px;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 30px;
+            color: #999;
+        }
+
+        .empty-state .icon {
+            font-size: 48px;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>
+                🚀 v2rayN 节点检测
+                <span>Web UI</span>
+            </h1>
+            <div class="status-indicator">
+                <span id="statusText">空闲</span>
+                <div class="status-dot" id="statusDot"></div>
+            </div>
+        </div>
+
+        <div class="main-grid">
+            <!-- 左侧：输入和设置 -->
+            <div>
+                <div class="panel">
+                    <div class="panel-title">
+                        📡 订阅链接检测
+                        <span class="badge" id="urlCount">0 个</span>
+                    </div>
+                    <textarea id="urlInput" placeholder="每行输入一个订阅链接&#10;https://example.com/sub1&#10;https://example.com/sub2"></textarea>
+
+                    <div class="controls">
+                        <button class="btn btn-primary" id="btnStart" onclick="startCheck()">
+                            ▶️ 开始订阅检测
+                        </button>
+                        <button class="btn btn-secondary" onclick="clearInput()">
+                            🗑️ 清空输入
+                        </button>
+                        <button class="btn btn-warning" onclick="loadExample()">
+                            📋 示例链接
+                        </button>
+                    </div>
+                </div>
+
+                <div class="panel" style="margin-top: 15px;">
+                    <div class="panel-title">
+                        🔗 节点批量检测
+                        <span class="badge" id="nodeCount">0 个</span>
+                    </div>
+                    <textarea id="nodeInput" placeholder="每行输入一个节点URI（不走订阅抓取，直接解析）&#10;vless://uuid@host:443?encryption=none#节点1&#10;vmess://base64...#节点2"></textarea>
+
+                    <div class="controls">
+                        <button class="btn btn-success" id="btnStartNodes" onclick="startNodeCheck()">
+                            ▶️ 开始节点检测
+                        </button>
+                        <button class="btn btn-secondary" onclick="clearNodeInput()">
+                            🗑️ 清空输入
+                        </button>
+                        <button class="btn btn-warning" onclick="loadNodeExample()">
+                            📋 示例节点
+                        </button>
+                    </div>
+                </div>
+
+                <div class="panel" style="margin-top: 15px;">
+                    <div class="panel-title">
+                        ⚙️ 检测设置
+                    </div>
+                    <div class="settings">
+                        <div class="settings-group">
+                            <label>⏱️ 超时时间 (秒)</label>
+                            <input type="number" id="timeout" value="3" min="1" max="30">
+                        </div>
+                        <div class="settings-group">
+                            <label>⚡ 并发线程数</label>
+                            <input type="number" id="workers" value="30" min="1" max="100">
+                        </div>
+                    </div>
+
+                    <div class="controls">
+                        <button class="btn btn-danger" id="btnStop" onclick="stopCheck()" disabled>
+                            ⏹️ 停止检测
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 进度显示 -->
+                <div class="panel" style="margin-top: 15px;">
+                    <div class="panel-title">
+                        📊 检测进度
+                    </div>
+                    <div class="progress-container">
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="progressFill"></div>
+                        </div>
+                        <div style="text-align: right; font-size: 13px; color: #888; margin-top: 4px;">
+                            <span id="progressText">0%</span>
+                        </div>
+                    </div>
+                    <div class="progress-stats">
+                        <div class="stat-item">
+                            <div class="stat-number total" id="totalNodes">0</div>
+                            <div class="stat-label">总节点</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-number valid" id="validNodes">0</div>
+                            <div class="stat-label">✅ 有效</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-number invalid" id="invalidNodes">0</div>
+                            <div class="stat-label">❌ 无效</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-number" id="checkedNodes" style="color: #9b59b6;">0</div>
+                            <div class="stat-label">已检测</div>
+                        </div>
+                    </div>
+                    <div style="font-size: 13px; color: #888; margin-top: 5px;">
+                        当前: <span id="currentNode">-</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 右侧：日志 -->
+            <div>
+                <div class="panel" style="height: 100%;">
+                    <div class="panel-title">
+                        📋 实时日志
+                        <span class="badge" id="logCount">0 条</span>
+                    </div>
+                    <div class="log-container" id="logContainer">
+                        <div class="log-entry">
+                            <span class="timestamp">[系统]</span>
+                            <span style="color: #888;">等待开始检测...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 结果列表 -->
+        <div class="results-section">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div class="panel-title" style="margin-bottom: 0;">
+                    📁 历史结果
+                    <span class="badge" id="resultCount">0 个文件</span>
+                </div>
+                <div>
+                    <button class="btn btn-danger btn-sm" onclick="clearResults()">
+                        🗑️ 清空所有
+                    </button>
+                    <button class="btn btn-secondary btn-sm" onclick="refreshResults()">
+                        🔄 刷新
+                    </button>
+                </div>
+            </div>
+            <div class="result-list" id="resultList">
+                <div class="empty-state">
+                    <div class="icon">📭</div>
+                    <div>暂无检测结果</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Socket.IO连接
+        const socket = io();
+        let isRunning = false;
+
+        // DOM元素
+        const urlInput = document.getElementById('urlInput');
+        const nodeInput = document.getElementById('nodeInput');
+        const btnStart = document.getElementById('btnStart');
+        const btnStartNodes = document.getElementById('btnStartNodes');
+        const btnStop = document.getElementById('btnStop');
+        const statusText = document.getElementById('statusText');
+        const statusDot = document.getElementById('statusDot');
+        const progressFill = document.getElementById('progressFill');
+        const progressText = document.getElementById('progressText');
+        const totalNodes = document.getElementById('totalNodes');
+        const validNodes = document.getElementById('validNodes');
+        const invalidNodes = document.getElementById('invalidNodes');
+        const checkedNodes = document.getElementById('checkedNodes');
+        const currentNode = document.getElementById('currentNode');
+        const logContainer = document.getElementById('logContainer');
+        const logCount = document.getElementById('logCount');
+        const urlCount = document.getElementById('urlCount');
+        const nodeCount = document.getElementById('nodeCount');
+        const resultList = document.getElementById('resultList');
+        const resultCount = document.getElementById('resultCount');
+
+        // 更新URL计数
+        urlInput.addEventListener('input', () => {
+            const urls = urlInput.value.split('\n').filter(u => u.trim());
+            urlCount.textContent = `${urls.length} 个`;
+        });
+
+        // 更新节点计数
+        nodeInput.addEventListener('input', () => {
+            const nodes = nodeInput.value.split('\n').filter(n => n.trim());
+            nodeCount.textContent = `${nodes.length} 个`;
+        });
+
+        // Socket事件
+        socket.on('connect', () => {
+            console.log('WebSocket连接成功');
+        });
+
+        socket.on('log', (data) => {
+            addLog(data.timestamp, data.message, data.level);
+        });
+
+        socket.on('status', (data) => {
+            updateStatus(data);
+        });
+
+        function addLog(timestamp, message, level) {
+            const entry = document.createElement('div');
+            entry.className = 'log-entry';
+
+            const levelClass = `level-${level}`;
+            entry.innerHTML = `
+                <span class="timestamp">[${timestamp}]</span>
+                <span class="${levelClass}">${message}</span>
+            `;
+
+            logContainer.appendChild(entry);
+            logContainer.scrollTop = logContainer.scrollHeight;
+
+            // 更新计数
+            const logs = logContainer.querySelectorAll('.log-entry');
+            logCount.textContent = `${logs.length} 条`;
+        }
+
+        function updateStatus(data) {
+            isRunning = data.is_running;
+
+            // 更新按钮状态
+            btnStart.disabled = isRunning;
+            btnStartNodes.disabled = isRunning;
+            btnStop.disabled = !isRunning;
+
+            // 更新状态指示器
+            if (isRunning) {
+                statusText.textContent = '检测中...';
+                statusDot.className = 'status-dot running';
+            } else {
+                statusText.textContent = data.end_time ? '已完成' : '空闲';
+                statusDot.className = 'status-dot';
+            }
+
+            // 更新进度
+            progressFill.style.width = `${data.progress || 0}%`;
+            progressText.textContent = `${data.progress || 0}%`;
+
+            // 更新统计
+            totalNodes.textContent = data.total_nodes || 0;
+            validNodes.textContent = data.valid_nodes || 0;
+            invalidNodes.textContent = data.invalid_nodes || 0;
+            checkedNodes.textContent = data.checked_nodes || 0;
+            currentNode.textContent = data.current_node || '-';
+        }
+
+        // 开始检测
+        function startCheck() {
+            const urls = urlInput.value.split('\n')
+                .map(u => u.trim())
+                .filter(u => u && !u.startsWith('#'));
+
+            if (urls.length === 0) {
+                alert('请至少输入一个有效的订阅链接');
+                return;
+            }
+
+            const timeout = parseInt(document.getElementById('timeout').value) || 3;
+            const workers = parseInt(document.getElementById('workers').value) || 30;
+
+            // 清空日志
+            logContainer.innerHTML = '';
+            logCount.textContent = '0 条';
+
+            // 发送请求
+            fetch('/api/check', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ urls, timeout, workers })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    alert(data.error);
+                }
+            })
+            .catch(error => {
+                alert('请求失败: ' + error.message);
+            });
+        }
+
+        // 停止检测
+        function stopCheck() {
+            if (!confirm('确定要停止检测吗？')) return;
+
+            fetch('/api/stop', { method: 'POST' })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'stopped') {
+                        addLog('[系统]', '⏹️ 检测已停止', 'warning');
+                    }
+                });
+        }
+
+        // 节点批量检测
+        function startNodeCheck() {
+            const nodes = nodeInput.value.split('\n')
+                .map(n => n.trim())
+                .filter(n => n && !n.startsWith('#'));
+
+            if (nodes.length === 0) {
+                alert('请至少输入一个有效节点');
+                return;
+            }
+
+            const timeout = parseInt(document.getElementById('timeout').value) || 3;
+            const workers = parseInt(document.getElementById('workers').value) || 30;
+
+            // 清空日志
+            logContainer.innerHTML = '';
+            logCount.textContent = '0 条';
+
+            // 发送请求
+            fetch('/api/check_nodes', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ nodes, timeout, workers })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    alert(data.error);
+                }
+            })
+            .catch(error => {
+                alert('请求失败: ' + error.message);
+            });
+        }
+
+        // 清空输入
+        function clearInput() {
+            urlInput.value = '';
+            urlCount.textContent = '0 个';
+        }
+
+        // 清空节点输入
+        function clearNodeInput() {
+            nodeInput.value = '';
+            nodeCount.textContent = '0 个';
+        }
+
+        // 加载示例
+        function loadExample() {
+            const examples = [
+                '# 示例订阅链接',
+                'https://example.com/api/v1/client/subscribe?token=demo123',
+                'https://example2.com/subscribe?url=base64',
+            ].join('\n');
+            urlInput.value = examples;
+            urlCount.textContent = '2 个';
+        }
+
+        // 加载示例节点
+        function loadNodeExample() {
+            const examples = [
+                '# 示例节点（vless:// vmess:// trojan:// ss:// socks://）',
+                'vless://uuid1234-5678-9abc-def0-123456789abc@example.com:443?encryption=none&security=tls&sni=example.com&type=tcp#示例节点1',
+                'vmess://eyJhZGQiOiJleGFtcGxlLmNvbSIsInBvcnQiOiI0NDMiLCJhaWQiOiIwIiwiY3lwaGVyIjoiYXV0byIsImlkIjoiMTExMTExMTEtMjIyMi0zMzMzLTQ0NDQtNTU1NTU1NTU1NTU1IiwicHMiOiLnp43kvJjnqIvms6IiLCJuZXQiOiJ0Y3AifQ==',
+            ].join('\n');
+            nodeInput.value = examples;
+            nodeCount.textContent = '2 个';
+        }
+
+        // 刷新结果列表
+        function refreshResults() {
+            fetch('/api/results')
+                .then(response => response.json())
+                .then(results => {
+                    renderResults(results);
+                });
+        }
+
+        // 渲染结果列表
+        function renderResults(results) {
+            resultList.innerHTML = '';
+            resultCount.textContent = `${results.length} 个文件`;
+
+            if (results.length === 0) {
+                resultList.innerHTML = `
+                    <div class="empty-state">
+                        <div class="icon">📭</div>
+                        <div>暂无检测结果</div>
+                    </div>
+                `;
+                return;
+            }
+
+            results.forEach(result => {
+                const item = document.createElement('div');
+                item.className = 'result-item';
+
+                const size = (result.size / 1024).toFixed(1);
+                const time = new Date(result.modified).toLocaleString('zh-CN');
+
+                item.innerHTML = `
+                    <div class="info">
+                        <div class="filename">📄 ${result.name}</div>
+                        <div class="meta">${size} KB · ${time}</div>
+                    </div>
+                    <div class="actions">
+                        <button class="btn btn-success btn-sm" onclick="downloadResult('${result.name}')">
+                            ⬇️ 下载
+                        </button>
+                    </div>
+                `;
+                resultList.appendChild(item);
+            });
+        }
+
+        // 下载结果
+        function downloadResult(filename) {
+            window.location.href = `/api/result/${filename}`;
+        }
+
+        // 清空结果
+        function clearResults() {
+            if (!confirm('确定要删除所有结果文件吗？')) return;
+
+            fetch('/api/clear_results', { method: 'POST' })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'cleared') {
+                        refreshResults();
+                        addLog('[系统]', '🗑️ 已清空所有结果文件', 'warning');
+                    }
+                });
+        }
+
+        // 初始化
+        refreshResults();
+
+        // 每30秒自动刷新结果列表
+        setInterval(refreshResults, 30000);
+    </script>
+</body>
+</html>

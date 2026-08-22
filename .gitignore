@@ -1,0 +1,26 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+
+# IDE
+.idea/
+
+# Runtime data
+temp/
+result/
+logs/
+
+# Backup files
+*.bak
+*.bak2
+
+# Temp renamed scripts
+start_20260822_*.bat
+stop_20260822_*.bat

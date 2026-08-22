@@ -1,0 +1,24 @@
+[project]
+name = "v2ray-checker-1-0-0"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "taylormao", email = "50844848+taylormao@users.noreply.github.com" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "eventlet==0.36.1",
+    "flask==2.3.3",
+    "flask-socketio==5.3.4",
+]
+
+# [project.scripts]
+# v2ray-checker-1-0-0 = "v2ray_checker_1_0_0:main"
+# 说明：本入口由脚手架默认生成，指向的 v2ray_checker_1_0_0:main 仅打印 Hello World，
+# 与真实主程序 app.py（Flask Web 服务）脱节；项目实际通过 start.bat -> python app.py 启动，
+# 故注释停用该入口，避免生成误导性的命令行命令。
+
+[build-system]
+requires = ["uv_build>=0.12.3,<0.13.0"]
+build-backend = "uv_build"
