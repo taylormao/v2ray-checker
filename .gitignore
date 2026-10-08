@@ -1,26 +1,36 @@
-# Python-generated files
-__pycache__/
-*.py[oc]
-build/
-dist/
-wheels/
-*.egg-info
+# ---- 内核目录（体积大，且全是上游文件，不该进仓库）----
+# 用法：把 sing-box.exe / xray.exe 放进 bin/，README 里说明了怎么下载
+bin/*
+!bin/.gitkeep
 
-# Virtual environments
-.venv
-
-# IDE
-.idea/
-
-# Runtime data
-temp/
+# ---- 检测输出 ----
 result/
 logs/
+temp/
 
-# Backup files
+# ---- 环境与缓存 ----
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.env
+
+# ---- 含真实凭据的客户端配置（不要提交）----
+clients/
+proxy_list.txt
+
+# ---- 编辑器 / IDE ----
+.idea/
+.vscode/
+*.swp
+.DS_Store
+
+# ---- 备份与临时文件 ----
 *.bak
 *.bak2
+*~
 
-# Temp renamed scripts
-start_20260822_*.bat
-stop_20260822_*.bat
+# ---- 模板备份 ----
+templates/*.bak
+templates/*.v2bak

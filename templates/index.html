@@ -389,6 +389,90 @@
             font-size: 48px;
             margin-bottom: 10px;
         }
+
+    /* ===== v2 内核验证结果面板 ===== */
+    .kernel-panel {
+        margin-bottom: 18px;
+        padding: 16px;
+        border-radius: 10px;
+        background: linear-gradient(135deg, #1e2130 0%, #232742 100%);
+        border: 1px solid #3a3f5c;
+    }
+    .kernel-summary {
+        display: flex; flex-wrap: wrap; gap: 10px;
+        margin-bottom: 16px; padding-bottom: 14px;
+        border-bottom: 1px solid #3a3f5c;
+    }
+    .kpi {
+        flex: 1; min-width: 108px;
+        padding: 10px 12px; border-radius: 8px;
+        background: rgba(255,255,255,.05); text-align: center;
+    }
+    .kpi-value { font-size: 21px; font-weight: 700; line-height: 1.15; }
+    .kpi-label { font-size: 11px; opacity: .65; margin-top: 3px; }
+    .kpi.ok .kpi-value   { color: #4ade80; }
+    .kpi.warn .kpi-value { color: #fbbf24; }
+    .kpi.info .kpi-value { color: #60a5fa; }
+    .kpi.bad .kpi-value  { color: #f87171; }
+
+    .kernel-section { margin-bottom: 14px; }
+    .kernel-section-title {
+        font-size: 13px; font-weight: 600; margin-bottom: 8px;
+        display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;
+    }
+    .kernel-hint { font-size: 11px; font-weight: 400; opacity: .55; }
+    .kernel-table-wrap {
+        max-height: 340px; overflow-y: auto;
+        border-radius: 8px; border: 1px solid #3a3f5c;
+    }
+    .kernel-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    .kernel-table thead th {
+        position: sticky; top: 0;
+        background: #262b45; color: #c9cee8;
+        padding: 8px 10px; text-align: left;
+        font-weight: 600; white-space: nowrap;
+        border-bottom: 1px solid #3a3f5c;
+    }
+    .kernel-table td {
+        padding: 7px 10px; border-bottom: 1px solid #2f3450;
+        font-family: ui-monospace, Consolas, monospace;
+    }
+    .kernel-table tr:hover td { background: rgba(255,255,255,.04); }
+    .k-rank { color: #94a3b8; width: 34px; }
+    .k-score { color: #4ade80; font-weight: 700; }
+    .k-lat { color: #60a5fa; }
+    .k-jit { color: #a78bfa; }
+    .k-mbps { color: #fbbf24; }
+    .k-none { opacity: .4; }
+    .kernel-badge {
+        display: inline-block; padding: 1px 6px; border-radius: 4px;
+        font-size: 10px; background: rgba(255,255,255,.1);
+    }
+    .kernel-failures { display: flex; flex-direction: column; gap: 5px; }
+    .fail-row {
+        display: flex; align-items: center; gap: 10px;
+        padding: 6px 10px; border-radius: 6px;
+        background: rgba(248,113,113,.08);
+        font-size: 12px;
+    }
+    .fail-count {
+        min-width: 44px; text-align: center;
+        padding: 2px 7px; border-radius: 4px;
+        background: rgba(248,113,113,.22); color: #fca5a5;
+        font-weight: 700; font-size: 12px;
+    }
+    .fail-bar {
+        flex: 1; height: 5px; border-radius: 3px;
+        background: rgba(255,255,255,.08); overflow: hidden;
+    }
+    .fail-bar-fill { height: 100%; background: linear-gradient(90deg,#f87171,#fb923c); }
+    .fail-text { flex: 0 0 auto; opacity: .8; font-size: 11px; }
+    .kernel-empty { text-align: center; padding: 16px; opacity: .5; font-size: 12px; }
+    .v2-banner {
+        margin-bottom: 14px; padding: 9px 13px; border-radius: 8px;
+        background: rgba(96,165,250,.12); border: 1px solid rgba(96,165,250,.3);
+        font-size: 12px; line-height: 1.55;
+    }
     </style>
 </head>
 <body>
@@ -456,12 +540,37 @@
                             <label>⏱️ 超时时间 (秒)</label>
                             <input type="number" id="timeout" value="3" min="1" max="30">
                         </div>
-                        <div class="settings-group">
+<div class="settings-group">
                             <label>⚡ 并发线程数</label>
                             <input type="number" id="workers" value="30" min="1" max="100">
                         </div>
                     </div>
 
+                    <!-- v2 新增：内核验证选项 -->
+                    <div class="settings" style="margin-top:12px;">
+                        <div class="settings-group" style="flex:1;">
+                            <label>🔧 验证内核</label>
+                            <div style="display:flex;align-items:center;gap:6px;height:32px;">
+                                <input type="checkbox" id="speedCheck" style="width:auto;">
+                                <span style="font-size:12px;">启用隧道测速（TOP 节点）</span>
+                            </div>
+                        </div>
+                        <div class="settings-group" style="max-width:130px;">
+                            <label>📊 测速节点数</label>
+                            <input type="number" id="topN" value="10" min="1" max="50">
+                        </div>
+                        <div class="settings-group" style="flex:1.4;">
+                            <label>🌐 订阅拉取代理</label>
+                            <input type="text" id="proxyInput" value="http://127.0.0.1:10808"
+                                   placeholder="填 none 表示直连">
+                        </div>
+                    </div>
+
+                    <div class="v2-banner">
+                        <strong>v2 模式</strong>：不再只做「端口连通」判断，而是启动
+                        sing-box / xray 内核真实建隧道，拿到目标站返回的
+                        <code>HTTP 204</code> 才算可用 —— 消除「端口通但根本不能用」的假阳性。
+                    </div>
                     <div class="controls">
                         <button class="btn btn-danger" id="btnStop" onclick="stopCheck()" disabled>
                             ⏹️ 停止检测
@@ -539,6 +648,39 @@
                     </button>
                 </div>
             </div>
+            <!-- ★ 内核验证结果面板（v2 新增） -->
+            <div class="kernel-panel" id="kernelPanel" style="display:none;">
+                <div class="kernel-summary" id="kernelSummary"></div>
+
+                <div class="kernel-section">
+                    <div class="kernel-section-title">🏆 可用节点排行
+                        <span class="kernel-hint">按综合评分排序 · 稳定性45% / 速度30% / 延迟20%</span>
+                    </div>
+                    <div class="kernel-table-wrap">
+                        <table class="kernel-table">
+                            <thead>
+                                <tr>
+                                    <th>#</th><th>节点</th><th>类型</th>
+                                    <th>评分</th><th>延迟</th><th>抖动</th><th>速度</th>
+                                </tr>
+                            </thead>
+                            <tbody id="kernelTopBody">
+                                <tr><td colspan="7" class="kernel-empty">暂无结果</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="kernel-section">
+                    <div class="kernel-section-title">❌ 失败原因分布
+                        <span class="kernel-hint">看清「端口通但不能用」的真实比例</span>
+                    </div>
+                    <div id="kernelFailures" class="kernel-failures">
+                        <div class="kernel-empty">暂无数据</div>
+                    </div>
+                </div>
+            </div>
+
             <div class="result-list" id="resultList">
                 <div class="empty-state">
                     <div class="icon">📭</div>
@@ -588,6 +730,12 @@
         });
 
         // Socket事件
+        socket.on('results', (data) => {
+            if (data && data.summary) {
+                renderKernelPanel(data);
+            }
+        });
+
         socket.on('connect', () => {
             console.log('WebSocket连接成功');
         });
@@ -669,12 +817,13 @@
             fetch('/api/check', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ urls, timeout, workers })
+                body: JSON.stringify({ urls, timeout, workers, speed: wantsSpeed(), top: wantsTop(), proxy: proxyVal() })
             })
             .then(response => response.json())
             .then(data => {
-                if (data.error) {
-                    alert(data.error);
+                // 兼容两种后端：1.0 用 data.error，2.0 用 data.success/message
+                if (data.success === false || data.error) {
+                    alert(data.message || data.error || '检测启动失败');
                 }
             })
             .catch(error => {
@@ -689,10 +838,104 @@
             fetch('/api/stop', { method: 'POST' })
                 .then(response => response.json())
                 .then(data => {
-                    if (data.status === 'stopped') {
-                        addLog('[系统]', '⏹️ 检测已停止', 'warning');
+                    if (data.status === 'stopped' || data.success) {
+                        addLog(new Date().toLocaleTimeString('zh-CN'), (data.message || '⏹️ 检测已停止'), 'warning');
                     }
                 });
+        }
+
+// ===== v2 内核验证面板渲染 =====
+        function escHtml(x) {
+            return String(x == null ? '' : x).replace(/[&<>"']/g,
+                c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+        }
+
+        function renderKernelPanel(data) {
+            if (!data || !data.summary) return;
+            const panel = document.getElementById('kernelPanel');
+            panel.style.display = 'block';
+
+            const total  = Object.values(data.funnel || {}).reduce((a, b) => a + b, 0);
+            const s      = data.summary;
+            const usable = s.kernel_ok || 0;
+            const rate   = total ? (usable * 100 / total).toFixed(1) : '0.0';
+
+            document.getElementById('kernelSummary').innerHTML = `
+                <div class="kpi info">
+                    <div class="kpi-value">${total}</div>
+                    <div class="kpi-label">解析节点</div>
+                </div>
+                <div class="kpi info">
+                    <div class="kpi-value">${s.tcp_ok || 0}</div>
+                    <div class="kpi-label">TCP 通</div>
+                </div>
+                <div class="kpi warn">
+                    <div class="kpi-value">${s.tls_ok || 0}</div>
+                    <div class="kpi-label">TLS 通</div>
+                </div>
+                <div class="kpi ok">
+                    <div class="kpi-value">${usable}</div>
+                    <div class="kpi-label">★ 真实可用</div>
+                </div>
+                <div class="kpi ${usable === 0 ? 'bad' : 'ok'}">
+                    <div class="kpi-value">${rate}%</div>
+                    <div class="kpi-label">真实可用率</div>
+                </div>
+                <div class="kpi info" style="min-width:150px">
+                    <div class="kpi-value" style="font-size:12px;line-height:1.5">
+                        ${escHtml(data.kernel || '—')}
+                    </div>
+                    <div class="kpi-label">验证内核</div>
+                </div>`;
+
+            // ---- TOP 排行 ----
+            const body = document.getElementById('kernelTopBody');
+            const top  = data.top || [];
+            if (!top.length) {
+                body.innerHTML = '<tr><td colspan="7" class="kernel-empty">'
+                    + '没有通过真实内核验证的节点</td></tr>';
+            } else {
+                body.innerHTML = top.map(n => `
+                    <tr>
+                        <td class="k-rank">${n.rank}</td>
+                        <td title="${escHtml(n.address + ':' + n.port)}">
+                            ${escHtml(n.label)}
+                        </td>
+                        <td><span class="kernel-badge">${escHtml(n.type)}/${escHtml(n.network)}</span></td>
+                        <td class="k-score">${n.score.toFixed(0)}</td>
+                        <td class="k-lat">${n.latency ? n.latency.toFixed(0) + 'ms' : '—'}</td>
+                        <td class="${n.jitter ? 'k-jit' : 'k-none'}">
+                            ${n.jitter ? '±' + n.jitter.toFixed(0) + 'ms' : '—'}
+                        </td>
+                        <td class="${n.mbps ? 'k-mbps' : 'k-none'}">
+                            ${n.mbps ? n.mbps.toFixed(1) + 'M' : (n.speed_mode === 'rtt' ? 'RTT' : '—')}
+                        </td>
+                    </tr>`).join('');
+            }
+
+            // ---- 失败原因 ----
+            const fbox = document.getElementById('kernelFailures');
+            const frs  = data.failure_reasons || [];
+            if (!frs.length) {
+                fbox.innerHTML = '<div class="kernel-empty">无失败节点</div>';
+            } else {
+                const max = Math.max.apply(null, frs.map(f => f.count));
+                fbox.innerHTML = frs.map(f => `
+                    <div class="fail-row">
+                        <span class="fail-count">${f.count}</span>
+                        <div class="fail-bar">
+                            <div class="fail-bar-fill" style="width:${(f.count * 100 / max).toFixed(1)}%"></div>
+                        </div>
+                        <span class="fail-text">${escHtml(f.reason)}</span>
+                    </div>`).join('');
+            }
+        }
+
+        function loadKernelResults() {
+            fetch('/api/results')
+                .then(r => r.json())
+                .then(d => { if (d && d.summary) renderKernelPanel(d); })
+                .catch(() => {});
         }
 
         // 节点批量检测
@@ -717,12 +960,13 @@
             fetch('/api/check_nodes', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ nodes, timeout, workers })
+                body: JSON.stringify({ nodes, timeout, workers, speed: wantsSpeed(), top: wantsTop(), proxy: proxyVal() })
             })
             .then(response => response.json())
             .then(data => {
-                if (data.error) {
-                    alert(data.error);
+                // 兼容两种后端：1.0 用 data.error，2.0 用 data.success/message
+                if (data.success === false || data.error) {
+                    alert(data.message || data.error || '检测启动失败');
                 }
             })
             .catch(error => {
@@ -768,9 +1012,24 @@
         function refreshResults() {
             fetch('/api/results')
                 .then(response => response.json())
-                .then(results => {
-                    renderResults(results);
+                .then(data => {
+                    // v2：后端返回结构化检测结果（含内核面板数据）
+                    if (data && data.summary) {
+                        renderKernelPanel(data);
+                        loadResultFiles();   // 文件列表单独拉
+                        return;
+                    }
+                    // 1.0 兼容：数组格式的文件列表
+                    if (Array.isArray(data)) renderResults(data);
                 });
+        }
+
+        // 文件列表单独向后端要（v2 里结果与文件列表是两件事）
+        function loadResultFiles() {
+            fetch('/api/result_files')
+                .then(r => r.json())
+                .then(files => { if (Array.isArray(files)) renderResults(files); })
+                .catch(() => {});
         }
 
         // 渲染结果列表
@@ -822,9 +1081,9 @@
             fetch('/api/clear_results', { method: 'POST' })
                 .then(response => response.json())
                 .then(data => {
-                    if (data.status === 'cleared') {
+                    if (data.status === 'cleared' || data.success) {
                         refreshResults();
-                        addLog('[系统]', '🗑️ 已清空所有结果文件', 'warning');
+                        addLog(new Date().toLocaleTimeString('zh-CN'), '🗑️ 已清空所有结果文件', 'warning');
                     }
                 });
         }
