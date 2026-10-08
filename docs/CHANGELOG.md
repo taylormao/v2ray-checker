@@ -5,6 +5,50 @@
 
 ---
 
+## [2.1.1] — 2026-10-08
+
+### 修复
+
+- **启动脚本 UX**：双击 `start_v2.bat` 后不再「干等没反馈」
+
+  实测服务本身只需 3.3 秒启动，但旧脚本打印完「正在启动，请稍候...」就阻塞，
+  既不显示进度也不打开浏览器，用户会以为程序卡死。这个体验问题比任何技术问题
+  都更让人困惑。
+
+  | 问题 | 修复 |
+  |---|---|
+  | 不开浏览器、不知去哪访问 | 就绪后自动打开 `http://localhost:5000` |
+  | 打印「正在启动」后无反馈 | 轮询端口探活，**打印实际耗时秒数** |
+  | 端口被占用就直接失败 | 启动前自动清理占用 5000 端口的残留进程 |
+  | 关掉窗口服务就停 | 创建真正的独立进程，父进程退出不受影响 |
+  | 出错只能看到空白 | stdout/stderr 写入 `logs/server.log` |
+
+### 新增
+
+- `launcher.py` —— 以独立进程启动服务
+
+  使用 Python 的 `subprocess` 分离进程标志（`DETACHED_PROCESS`、
+  `CREATE_NEW_PROCESS_GROUP`、`CREATE_NO_WINDOW`），
+  父进程退出后服务继续存活。
+
+  不依赖 `wmic` 或 PowerShell —— 这两者在部分环境会被安全策略禁用
+  （实测本机 `wmic` 被拦）。
+
+- `wait_port.py` —— 端口探活工具（~10ms）
+
+  批处理里没有可靠的「判断 TCP 端口是否已监听」的内建命令。常见替代都有问题：
+  `netstat` 看不出服务是否能接受请求；PowerShell 的连接检测每次要 1~2 秒，
+  轮询十几秒明显变慢；`ping` 测的是 ICMP，与端口无关。
+
+  本脚本 socket 连接成功即 `exit 0`，纯 Python 无外部依赖。
+
+### 版本号
+
+`pyproject.toml` 与页面标题统一为 `2.1.1`（此前 `pyproject.toml` 仍是 `0.1.0`，
+与实际版本不符）。
+
+---
+
 ## [2.0.0] — 2026-10-08
 
 ### 破坏性变更
@@ -123,5 +167,6 @@
 
 ---
 
+[2.1.1]: https://github.com/taylormao/v2ray-checker/releases/tag/v2.1.1
 [2.0.0]: https://github.com/taylormao/v2ray-checker/releases/tag/v2.0.0
 [1.0.0]: https://github.com/taylormao/v2ray-checker/releases/tag/v1.0.0

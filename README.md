@@ -1,10 +1,11 @@
-# v2ray-checker 2.0 — 真实内核验证版节点检测
+# v2ray-checker 2.1.1 — 真实内核验证版节点检测
 
 > 端口能通≠ 节点能用。
 > 本工具用**真实代理内核**建隧道，拿到目标站的真实响应才算通过 ——
 > 消除「端口开着但根本不能用」的假阳性。
 
 [![Python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/)
+[![Version](https://img.shields.io/badge/version-2.1.1-blue.svg)](docs/CHANGELOG.md)
 [![License MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 ---
