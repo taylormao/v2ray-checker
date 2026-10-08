@@ -743,13 +743,47 @@
             }
         });
 
+        // ===== 轮询兜底：Socket.IO 推送可能因代理/缓存/长连接断开而丢失 =====
+        // 每 2 秒拉一次状态；有变化才更新，避免无谓重绘
+        let _lastLogCount = -1;
+        let _lastRunning = null;
+
+        setInterval(() => {
+            fetch('/api/status')
+                .then(r => r.json())
+                .then(st => {
+                    updateStatus(st);
+
+                    // 日志区：后端累积了全部日志，前端按数量差增量补
+                    const msgs = st.log_messages || [];
+                    if (msgs.length !== _lastLogCount) {
+                        if (_lastLogCount < 0 || msgs.length < _lastLogCount) {
+                            logContainer.innerHTML = '';      // 新任务或首次：全量重建
+                        }
+                        const from = Math.max(_lastLogCount, 0);
+                        for (let i = from; i < msgs.length; i++) {
+                            addLog(msgs[i].timestamp || msgs[i].time || '',
+                                   msgs[i].message, msgs[i].level || 'info');
+                        }
+                        _lastLogCount = msgs.length;
+                    }
+
+                    // 检测结束时拉一次结果
+                    if (_lastRunning === true && st.is_running === false) {
+                        loadKernelResults();
+                        refreshResults();
+                    }
+                    _lastRunning = st.is_running;
+                })
+                .catch(() => {});
+        }, 2000);
+
         socket.on('connect', () => {
             console.log('WebSocket连接成功');
         });
 
-        socket.on('log', (data) => {
-            addLog(data.timestamp, data.message, data.level);
-        });
+        // 日志统一由轮询增量补齐（避免 socket+轮询双通道重复追加）；
+        // socket 通道仅用于低延迟的按钮/进度更新。
 
         socket.on('status', (data) => {
             updateStatus(data);
