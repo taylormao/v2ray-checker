@@ -233,6 +233,46 @@ subprocess.Popen(cmd, env=env, creationflags=subprocess.CREATE_NO_WINDOW)
 
 ---
 
+## 自举依赖（务必理解）
+
+项目内的 `bin/sing-box.exe` / `bin/xray.exe` 是**通用引擎**：
+它们能配置并连接任意节点，但**自身不含任何节点**（没有默认配置、
+不读系统代理、不连任何服务器）。所以存在前置依赖：
+
+```
+① 拉取订阅  →  需要一个【已能上网的外部代理】（用户侧的 v2rayN/Clash）
+② 检测节点  →  项目内核按订阅里的地址/uuid/密码起实例，逐个验证
+```
+
+**没有 ① 就必然 0 个节点。** 这是设计使然而非 bug。
+
+### 为什么不用项目内核去做 ①
+
+ tempting 的想法是「让内核自己拉订阅」，但那要求内核有一个可用出口 ——
+而出口正是待验证的对象，逻辑上循环。**必须用外部已建立的代理。**
+
+### 两条独立路径
+
+| 路径 | 需要外部代理 |
+|---|---|
+| `--url`（订阅检测） | ✅ |
+| `--file` / `--paste`（节点批量） | ❌ |
+
+### 诊断实现
+
+`_preflight()`（Web）与 `_probe_proxy()`（CLI）在检测前探活代理：
+
+```python
+opener = urllib.request.build_opener(
+    urllib.request.ProxyHandler({"http": proxy, "https": proxy}))
+with opener.open("https://www.gstatic.com/generate_204", timeout=8) as r:
+    ...   # 通则继续，不通则打印前置依赖说明并 return False
+```
+
+用 `generate_204` 而不是订阅源本身 —— 它足够轻量，且不依赖具体站点。
+
+---
+
 ## 测试
 
 ### 内核配置校验（比启动后再看日志快得多）

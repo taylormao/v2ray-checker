@@ -466,6 +466,21 @@ def run_speed(
 # --------------------------------------------------------------------------
 
 
+def _probe_proxy(proxy: str, timeout: float = 8.0) -> bool:
+    """检查代理是否真的能出网。"""
+    import urllib.request as _u
+    opener = _u.build_opener(_u.ProxyHandler({"http": proxy, "https": proxy}))
+    try:
+        req = _u.Request("https://www.gstatic.com/generate_204",
+                         headers={"User-Agent": "Mozilla/5.0"})
+        with opener.open(req, timeout=timeout) as r:
+            print(f"✅ 代理可用（HTTP {r.status}）")
+            return True
+    except Exception as exc:
+        print(f"   原因：{type(exc).__name__}: {str(exc)[:60]}")
+        return False
+
+
 def main(argv: Optional[List[str]] = None) -> int:
     ap = argparse.ArgumentParser(
         description="节点检测：五级漏斗 + 真实内核验证 + 评分排序",
@@ -498,9 +513,30 @@ def main(argv: Optional[List[str]] = None) -> int:
     # ---- 1. 收集节点 ----
     nodes: List[NodeSpec] = []
     if args.url:
+        proxy = None if str(args.proxy).lower() == "none" else args.proxy
+
+        # ---- 前置依赖提示（见下方说明）----
+        if proxy is None:
+            print("🔍 未指定代理，尝试直连拉取订阅")
+            print("   （GitHub Raw 等境外源在境内通常无法直连）")
+        else:
+            print(f"🔍 检查代理 {proxy} ...")
+            if not _probe_proxy(proxy):
+                print("")
+                print("⚠️ 检测存在前置依赖，原理如下：")
+                print("   项目内的 sing-box/xray 是通用引擎，本身【不含节点】")
+                print("   ① 拉取订阅 → 需要一个【已能上网的外部代理】")
+                print("   ② 检测节点 → 把 ① 拿到的节点喂给内核验证")
+                print("   若 ① 失败，② 必然是 0 个节点 —— 这不是工具故障")
+                print("")
+                print("💡 解决办法（三选一）：")
+                print("   a) 启动 v2rayN / Clash 等，本工具 --proxy 填它的端口")
+                print("   b) 用 --file / --paste 直接粘贴节点 URI，完全不需要代理")
+                print("   c) --proxy none 走直连 —— 仅当订阅源在境内可达时")
+                return 3
+
         for u in args.url:
             try:
-                proxy = None if str(args.proxy).lower() == "none" else args.proxy
                 content = fetch_subscription(u, proxy=proxy)
                 got = parse_subscription(content)
                 print(f"订阅 {u[:60]}... → {len(got)} 个节点")

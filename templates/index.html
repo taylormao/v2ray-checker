@@ -571,6 +571,13 @@
                         sing-box / xray 内核真实建隧道，拿到目标站返回的
                         <code>HTTP 204</code> 才算可用 —— 消除「端口通但根本不能用」的假阳性。
                     </div>
+                    <div class="v2-banner" style="background:rgba(251,191,36,.1);border-color:rgba(251,191,36,.3)">
+                        <strong>⚠️ 前置依赖</strong>：本工具自带内核但<em>不含节点</em>（内核是通用引擎，
+                        需要外部喂入节点配置）。所以<strong>「订阅链接检测」需要一个已能上网的外部代理</strong>
+                        （如 v2rayN / Clash）来拉取订阅 —— 否则必然 0 个可用节点。
+                        <br>
+                        若你已有节点 URI，用 <strong>「节点批量检测」</strong>完全不需要任何代理。
+                    </div>
                     <div class="controls">
                         <button class="btn btn-danger" id="btnStop" onclick="stopCheck()" disabled>
                             ⏹️ 停止检测

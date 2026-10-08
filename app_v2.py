@@ -279,6 +279,49 @@ def handle_connect():
 # --------------------------------------------------------------------------
 
 
+def _preflight(proxy: Optional[str]) -> bool:
+    """检测订阅拉取的前置依赖。
+
+    ⚠️ 存在自举依赖，必须在检测前明确告知用户：
+      项目里的 sing-box / xray 是**通用引擎**（可配任何节点），
+      但它**不含任何代理节点**。所以：
+        拉取订阅 → 需要「已有的外部代理」
+        检测节点 → 用拉到的节点喂给内核
+      没有前者，后者必然是 0 个节点。
+    """
+    if not proxy:
+        add_log("🔍 未指定代理，将尝试直连拉取订阅", "info")
+        add_log("   （GitHub Raw等境外源在境内通常无法直连）", "warning")
+        return True
+
+    # 探活：用代理拉一个轻量页面
+    import urllib.request as _u
+    probe_url = "https://www.gstatic.com/generate_204"
+    opener = _u.build_opener(_u.ProxyHandler({"http": proxy, "https": proxy}))
+    try:
+        req = _u.Request(probe_url, headers={"User-Agent": "Mozilla/5.0"})
+        with opener.open(req, timeout=8) as r:
+            code = r.status
+        add_log(f"✅ 代理可用（{proxy} → HTTP {code}）", "success")
+        return True
+    except Exception as exc:
+        add_log(f"❌ 代理不可用：{proxy}", "error")
+        add_log(f"   原因：{type(exc).__name__}: {str(exc)[:70]}", "error")
+        add_log("", "info")
+        add_log("⚠️ 检测存在前置依赖，原理如下：", "warning")
+        add_log("   项目内的 sing-box/xray 是通用引擎，本身【不含节点】", "warning")
+        add_log("   ① 拉取订阅 → 需要一个【已能上网的外部代理】", "warning")
+        add_log("   ② 检测节点 → 把①拿到的节点喂给内核验证", "warning")
+        add_log("   若①失败，②必然是 0 个节点 —— 这不是工具故障", "warning")
+        add_log("", "info")
+        add_log("💡 解决办法（三选一）：", "info")
+        add_log("   a) 启动 v2rayN/Clash 等，本工具的代理填它的端口", "info")
+        add_log("      （本机实测可用：127.0.0.1:10808）", "info")
+        add_log("   b) 用「节点批量检测」直接粘贴节点 URI，完全不需要代理", "info")
+        add_log("   c) 代理填 none 走直连 —— 仅当订阅源在境内可达时", "info")
+        return False
+
+
 def _collect(urls: List[str], proxy: Optional[str]) -> List:
     nodes = []
     for u in urls:
@@ -418,6 +461,9 @@ def _run_by_url(urls: List[str], opts: Dict[str, Any]) -> None:
     add_log("🚀 开始订阅检测（内核验证模式）", "success")
 
     proxy = None if str(opts["proxy"]).lower() == "none" else opts["proxy"]
+    if not _preflight(proxy):
+        push_status(is_running=False, end_time=datetime.now().isoformat())
+        return
     nodes = _collect(urls, proxy)
     if not nodes:
         add_log("❌ 未取到任何节点，任务结束", "error")
